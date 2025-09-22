@@ -1,0 +1,5 @@
+{
+  "name": "TimeLink HR",
+  "description": "A comprehensive web application for employee time tracking, leave management, and administrative oversight. Features include QR code check-in, a multi-level approval system for leave requests, and a dashboard for insightful analytics.",
+  "requestFramePermissions": []
+}
