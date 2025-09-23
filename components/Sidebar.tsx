@@ -45,7 +45,9 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                 
                 <nav className="mt-10">
                     <NavItem to="/time-clock" icon={<Clock size={20} />}>บันทึกเวลา</NavItem>
-                    <NavItem to="/dashboard" icon={<BarChart2 size={20} />}>แดชบอร์ด</NavItem>
+                    {currentUser?.role !== Role.Employee && (
+                        <NavItem to="/dashboard" icon={<BarChart2 size={20} />}>แดชบอร์ด</NavItem>
+                    )}
                     <NavItem to="/leave" icon={<Calendar size={20} />}>จัดการการลา</NavItem>
                     {isManager && (
                         <NavItem to="/approvals" icon={<CheckSquare size={20} />}>อนุมัติการลา</NavItem>

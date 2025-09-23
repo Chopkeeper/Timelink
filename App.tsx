@@ -77,8 +77,10 @@ const App: React.FC = () => {
                         </>
                     ) : (
                         <Route path="/" element={<Layout />}>
-                            <Route index element={<Navigate to="/time-clock" replace />} />
-                            <Route path="dashboard" element={<Dashboard />} />
+                            <Route index element={<Navigate to={currentUser.role === Role.Employee ? "/time-clock" : "/dashboard"} replace />} />
+                            {currentUser.role !== Role.Employee && (
+                                <Route path="dashboard" element={<Dashboard />} />
+                            )}
                             <Route path="time-clock" element={<TimeClock />} />
                             <Route path="leave" element={<LeaveManagement />} />
                             { (currentUser.role === Role.Manager || currentUser.role === Role.Supervisor) && (
@@ -87,7 +89,7 @@ const App: React.FC = () => {
                             { currentUser.role === Role.Admin && (
                                 <Route path="admin" element={<Admin />} />
                             )}
-                            <Route path="*" element={<Navigate to="/time-clock" replace />} />
+                            <Route path="*" element={<Navigate to={currentUser.role === Role.Employee ? "/time-clock" : "/dashboard"} replace />} />
                         </Route>
                     )}
                     <Route path="*" element={<Navigate to={currentUser ? "/" : "/login"} replace />} />
