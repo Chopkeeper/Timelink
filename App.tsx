@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthContext } from './contexts/AuthContext';
-import { User, Role } from './types';
+import { User } from './types';
 import { users } from './mockData';
 import Layout from './components/Layout';
 import Login from './pages/Login';
@@ -48,7 +48,7 @@ const App: React.FC = () => {
         const newUser: User = {
             ...userData,
             avatar: `https://picsum.photos/seed/${userData.id}/200`,
-            role: Role.Employee,
+            role: 'พนักงานปฏิบัติการ',
             password: 'password123',
         };
         users.push(newUser); 
@@ -77,19 +77,19 @@ const App: React.FC = () => {
                         </>
                     ) : (
                         <Route path="/" element={<Layout />}>
-                            <Route index element={<Navigate to={currentUser.role === Role.Employee ? "/time-clock" : "/dashboard"} replace />} />
-                            {currentUser.role !== Role.Employee && (
+                            <Route index element={<Navigate to={currentUser.role === 'พนักงานปฏิบัติการ' ? "/time-clock" : "/dashboard"} replace />} />
+                            {currentUser.role !== 'พนักงานปฏิบัติการ' && (
                                 <Route path="dashboard" element={<Dashboard />} />
                             )}
                             <Route path="time-clock" element={<TimeClock />} />
                             <Route path="leave" element={<LeaveManagement />} />
-                            { (currentUser.role === Role.Manager || currentUser.role === Role.Supervisor) && (
+                            { (currentUser.role === 'ผู้จัดการ' || currentUser.role === 'หัวหน้างาน') && (
                                 <Route path="approvals" element={<Approvals />} />
                             )}
-                            { currentUser.role === Role.Admin && (
+                            { currentUser.role === 'ผู้ดูแลระบบ' && (
                                 <Route path="admin" element={<Admin />} />
                             )}
-                            <Route path="*" element={<Navigate to={currentUser.role === Role.Employee ? "/time-clock" : "/dashboard"} replace />} />
+                            <Route path="*" element={<Navigate to={currentUser.role === 'พนักงานปฏิบัติการ' ? "/time-clock" : "/dashboard"} replace />} />
                         </Route>
                     )}
                     <Route path="*" element={<Navigate to={currentUser ? "/" : "/login"} replace />} />

@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { leaveRequests, timeLogs, users } from '../mockData';
-import { LeaveType, Role } from '../types';
+import { LeaveType } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { Clock, Calendar, UserCheck, AlertTriangle } from 'lucide-react';
 
@@ -38,7 +37,7 @@ const Dashboard: React.FC = () => {
         count: leaveRequests.filter(req => req.leaveType === type).length,
     }));
     
-    const userTeamIds = currentUser?.role === Role.Admin 
+    const userTeamIds = currentUser?.role === 'ผู้ดูแลระบบ'
         ? users.map(u => u.id)
         : users.filter(u => u.supervisorId === currentUser?.id || u.managerId === currentUser?.id).map(u => u.id);
 

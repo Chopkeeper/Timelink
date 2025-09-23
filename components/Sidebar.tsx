@@ -1,8 +1,6 @@
-
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Role } from '../types';
 import { BarChart2, Clock, Calendar, CheckSquare, Shield, X } from 'lucide-react';
 
 interface SidebarProps {
@@ -28,8 +26,9 @@ const NavItem: React.FC<{ to: string; icon: React.ReactNode; children: React.Rea
 
 const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
     const { currentUser } = useAuth();
-    const isAdmin = currentUser?.role === Role.Admin;
-    const isManager = currentUser?.role === Role.Manager || currentUser?.role === Role.Supervisor;
+    const isAdmin = currentUser?.role === 'ผู้ดูแลระบบ';
+    const isManager = currentUser?.role === 'ผู้จัดการ' || currentUser?.role === 'หัวหน้างาน';
+    const isEmployeeOnly = currentUser?.role === 'พนักงานปฏิบัติการ';
 
     return (
         <>
@@ -45,7 +44,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                 
                 <nav className="mt-10">
                     <NavItem to="/time-clock" icon={<Clock size={20} />}>บันทึกเวลา</NavItem>
-                    {currentUser?.role !== Role.Employee && (
+                    {!isEmployeeOnly && (
                         <NavItem to="/dashboard" icon={<BarChart2 size={20} />}>แดชบอร์ด</NavItem>
                     )}
                     <NavItem to="/leave" icon={<Calendar size={20} />}>จัดการการลา</NavItem>

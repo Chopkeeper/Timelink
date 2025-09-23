@@ -1,4 +1,3 @@
-
 # TimeLink HR - Frontend Application
 
 This is a comprehensive React-based frontend for TimeLink HR, an employee time tracking and leave management system. It's built with modern web technologies to provide a seamless and aesthetically pleasing user experience.
@@ -101,7 +100,7 @@ Here's a conceptual guide for a developer setting up the backend.
           professionalId: { type: String, required: true },
           department: { type: String, required: true },
           avatar: { type: String },
-          role: { type: String, enum: ['Employee', 'Supervisor', 'Manager', 'Admin'], default: 'Employee' },
+          role: { type: String, enum: ['พนักงานปฏิบัติการ', 'หัวหน้างาน', 'ผู้จัดการ', 'ผู้ดูแลระบบ'], default: 'พนักงานปฏิบัติการ' },
           supervisorId: { type: String },
           managerId: { type: String },
       });

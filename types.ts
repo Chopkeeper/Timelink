@@ -1,8 +1,6 @@
-export enum Role {
-    Employee = 'Employee',
-    Supervisor = 'Supervisor',
-    Manager = 'Manager',
-    Admin = 'Admin',
+export interface RoleType {
+    name: string;
+    level: number;
 }
 
 export enum LeaveType {
@@ -26,7 +24,7 @@ export interface User {
     professionalId: string;
     department: string;
     avatar: string;
-    role: Role;
+    role: string;
     lineUserId?: string;
     password?: string;
     supervisorId?: string;
@@ -44,10 +42,22 @@ export interface LeaveRequest {
     requestedAt: string;
 }
 
+export interface Location {
+    latitude: number;
+    longitude: number;
+}
+
 export interface TimeLog {
     id: string;
     userId: string;
     checkIn: string | null;
     checkOut: string | null;
     date: string;
+    checkInLocation?: Location;
+    checkOutLocation?: Location;
+}
+
+export interface SystemSettings {
+    officeLocation: Location;
+    checkInRadiusMeters: number;
 }

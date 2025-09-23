@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { users } from '../mockData';
-import { Role, User } from '../types';
+import { User } from '../types';
 
 // SVG for LINE icon
 const LineIcon = () => (
@@ -65,7 +64,7 @@ const Register: React.FC = () => {
             ...formData,
             password: password,
             avatar: `https://picsum.photos/seed/${formData.id}/200`,
-            role: Role.Employee, // Default role for new sign-ups
+            role: 'พนักงานปฏิบัติการ', // Default role for new sign-ups
         };
 
         // For this demo, we add it to our mock data and navigate to login.
