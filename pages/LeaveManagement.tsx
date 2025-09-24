@@ -76,7 +76,11 @@ const LeaveRequestModal: React.FC<{ onClose: () => void; onSubmit: (newRequest: 
 const LeaveManagement: React.FC = () => {
     const { currentUser } = useAuth();
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [userLeaveRequests, setUserLeaveRequests] = useState(leaveRequests.filter(req => req.userId === currentUser?.id));
+    const [userLeaveRequests, setUserLeaveRequests] = useState(() => 
+        leaveRequests
+            .filter(req => req.userId === currentUser?.id)
+            .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime())
+    );
 
     const handleRequestSubmit = (newRequestData: Omit<LeaveRequest, 'id' | 'userId' | 'status' | 'requestedAt'>) => {
         const newRequest: LeaveRequest = {
@@ -88,7 +92,7 @@ const LeaveManagement: React.FC = () => {
         };
         // In real app, this would be an API call
         leaveRequests.push(newRequest);
-        setUserLeaveRequests([...userLeaveRequests, newRequest]);
+        setUserLeaveRequests([newRequest, ...userLeaveRequests]);
         setIsModalOpen(false);
         alert('ส่งคำขอลางานสำเร็จ');
     };
@@ -104,26 +108,30 @@ const LeaveManagement: React.FC = () => {
             </div>
 
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                <table className="min-w-full">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ประเภท</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เหตุผล</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {userLeaveRequests.map(req => (
-                            <tr key={req.id}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{req.leaveType}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(req.startDate).toLocaleDateString('th-TH')} - {new Date(req.endDate).toLocaleDateString('th-TH')}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">{req.reason}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><StatusBadge status={req.status} /></td>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่ยื่นขอ</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ประเภท</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่ลา</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เหตุผล</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {userLeaveRequests.map(req => (
+                                <tr key={req.id}>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(req.requestedAt).toLocaleDateString('th-TH')}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{req.leaveType}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(req.startDate).toLocaleDateString('th-TH')} - {new Date(req.endDate).toLocaleDateString('th-TH')}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">{req.reason}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><StatusBadge status={req.status} /></td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
                  {userLeaveRequests.length === 0 && <p className="p-4 text-center text-gray-500">ไม่มีประวัติการลา</p>}
             </div>
 
