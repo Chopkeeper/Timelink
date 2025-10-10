@@ -1,39 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { timeLogs, systemSettings } from '../mockData';
-import { TimeLog } from '../types';
+import { TimeLog, SystemSettings } from '../types';
 import { QrCode, X, MapPin } from 'lucide-react';
+import { apiGetTodayLog, apiCheckIn, apiCheckOut, apiGetSystemSettings } from '../services/api';
 
 // --- Helper Functions ---
-
-// Haversine formula to calculate distance between two GPS coordinates
 const getDistanceInMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371e3; // Earth's radius in meters
-    const φ1 = (lat1 * Math.PI) / 180; // φ, λ in radians
+    const R = 6371e3;
+    const φ1 = (lat1 * Math.PI) / 180;
     const φ2 = (lat2 * Math.PI) / 180;
     const Δφ = ((lat2 - lat1) * Math.PI) / 180;
     const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-    const a =
-        Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-        Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c; // Distance in meters
+    return R * c;
 };
 
 const getCurrentPosition = (): Promise<GeolocationPosition> => {
     return new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-        });
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true });
     });
 };
 
 // --- Components ---
-
-const ClockButton: React.FC<{ onClick: () => void; label: string; time: string | null; bgColor: string }> = ({ onClick, label, time, bgColor }) => (
-    <button onClick={onClick} className={`w-full md:w-2/5 h-48 rounded-2xl text-white flex flex-col items-center justify-center transition-transform transform hover:scale-105 shadow-xl ${bgColor}`}>
+const ClockButton: React.FC<{ onClick: () => void; label: string; time: string | null; bgColor: string; disabled: boolean }> = ({ onClick, label, time, bgColor, disabled }) => (
+    <button
+        onClick={onClick}
+        disabled={disabled}
+        className={`w-full md:w-2/5 h-48 rounded-2xl text-white flex flex-col items-center justify-center transition-transform transform hover:scale-105 shadow-xl ${bgColor} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+    >
         <span className="text-4xl font-bold">{label}</span>
         <span className="text-lg mt-2">{time ? new Date(time).toLocaleTimeString('th-TH') : 'ยังไม่บันทึก'}</span>
     </button>
@@ -53,11 +47,12 @@ const QRCodeModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
 );
 
 const TimeClock: React.FC = () => {
-    const { currentUser } = useAuth();
     const [currentTime, setCurrentTime] = useState(new Date());
     const [todayLog, setTodayLog] = useState<TimeLog | null>(null);
+    const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
     const [showQR, setShowQR] = useState(false);
     const [locationMessage, setLocationMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -65,32 +60,35 @@ const TimeClock: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        const todayStr = new Date().toISOString().split('T')[0];
-        const log = timeLogs.find(l => l.userId === currentUser?.id && l.date === todayStr) || null;
-        setTodayLog(log);
-    }, [currentUser]);
+        const fetchData = async () => {
+            try {
+                const [log, settings] = await Promise.all([apiGetTodayLog(), apiGetSystemSettings()]);
+                setTodayLog(log);
+                setSystemSettings(settings);
+            } catch (error) {
+                console.error("Failed to fetch initial data:", error);
+                setLocationMessage({ text: 'ไม่สามารถโหลดข้อมูลระบบได้', type: 'error' });
+            }
+        };
+        fetchData();
+    }, []);
 
     const handleTimeLog = async (logType: 'checkIn' | 'checkOut') => {
-        if (logType === 'checkIn' && todayLog?.checkIn) {
-            alert('คุณได้ลงเวลาเข้างานแล้ววันนี้');
+        if (!systemSettings) {
+            alert('ยังไม่สามารถบันทึกเวลาได้เนื่องจากข้อมูลระบบยังไม่ถูกตั้งค่า');
             return;
         }
-        if (logType === 'checkOut' && !todayLog?.checkIn) {
-            alert('กรุณาลงเวลาเข้างานก่อน');
-            return;
-        }
-        if (logType === 'checkOut' && todayLog?.checkOut) {
-            alert('คุณได้ลงเวลาออกงานแล้ววันนี้');
-            return;
-        }
+
+        setIsLoading(true);
+        setLocationMessage({ text: 'กำลังระบุตำแหน่งของคุณ...', type: 'info' });
 
         try {
             const position = await getCurrentPosition();
             const { latitude, longitude } = position.coords;
             const distance = getDistanceInMeters(
-                latitude, 
-                longitude, 
-                systemSettings.officeLocation.latitude, 
+                latitude,
+                longitude,
+                systemSettings.officeLocation.latitude,
                 systemSettings.officeLocation.longitude
             );
 
@@ -98,46 +96,31 @@ const TimeClock: React.FC = () => {
                 const errorMessage = `คุณอยู่นอกพื้นที่ (${Math.round(distance)} ม.) ต้องอยู่ในระยะ ${systemSettings.checkInRadiusMeters} ม.`;
                 setLocationMessage({ text: errorMessage, type: 'error' });
                 alert(errorMessage);
+                setIsLoading(false);
                 return;
             }
-            
-            const now = new Date().toISOString();
-            const todayStr = now.split('T')[0];
+
             const timeLabel = logType === 'checkIn' ? 'เข้างาน' : 'ออกงาน';
             const successMessage = `ลงเวลา${timeLabel}สำเร็จ! ระยะห่าง: ${Math.round(distance)} ม.`;
             
+            let updatedLog;
             if (logType === 'checkIn') {
-                const newLog: TimeLog = {
-                    id: `TL${Date.now()}`,
-                    userId: currentUser!.id,
-                    date: todayStr,
-                    checkIn: now,
-                    checkOut: null,
-                    checkInLocation: { latitude, longitude }
-                };
-                timeLogs.push(newLog);
-                setTodayLog(newLog);
-                setLocationMessage({ text: `บันทึกตำแหน่ง${timeLabel}แล้ว`, type: 'success' });
-            } else { // checkOut
-                const updatedLog: TimeLog = {
-                    ...todayLog!,
-                    checkOut: now,
-                    checkOutLocation: { latitude, longitude }
-                };
-                const logIndex = timeLogs.findIndex(l => l.id === todayLog!.id);
-                if (logIndex > -1) timeLogs[logIndex] = updatedLog;
-                setTodayLog(updatedLog);
-                setLocationMessage({ text: `บันทึกตำแหน่ง${timeLabel}แล้ว`, type: 'success' });
+                updatedLog = await apiCheckIn({ latitude, longitude });
+            } else {
+                updatedLog = await apiCheckOut({ latitude, longitude });
             }
-            
+            setTodayLog(updatedLog);
+            setLocationMessage({ text: `บันทึกตำแหน่ง${timeLabel}แล้ว`, type: 'success' });
             alert(successMessage);
 
         } catch (error: any) {
             const specificMessage = error?.message || 'ไม่สามารถเข้าถึงตำแหน่งได้';
-            const errorMessage = `ไม่สามารถบันทึกเวลาได้: ${specificMessage}. กรุณาตรวจสอบการตั้งค่าตำแหน่งในเบราว์เซอร์ของคุณ`;
+            const errorMessage = `ไม่สามารถบันทึกเวลาได้: ${specificMessage}.`;
             setLocationMessage({ text: specificMessage, type: 'error' });
             alert(errorMessage);
             console.error(error);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -146,6 +129,9 @@ const TimeClock: React.FC = () => {
         error: 'bg-red-100 text-red-700',
         info: 'bg-blue-100 text-blue-700',
     };
+
+    const isCheckInDisabled = isLoading || !!todayLog?.checkIn;
+    const isCheckOutDisabled = isLoading || !todayLog?.checkIn || !!todayLog?.checkOut;
 
     return (
         <div className="text-center">
@@ -160,8 +146,8 @@ const TimeClock: React.FC = () => {
             )}
 
             <div className="mt-8 flex flex-col md:flex-row justify-center items-center gap-8">
-                <ClockButton onClick={() => handleTimeLog('checkIn')} label="เข้างาน" time={todayLog?.checkIn || null} bgColor="bg-gradient-to-br from-green-500 to-emerald-600" />
-                <ClockButton onClick={() => handleTimeLog('checkOut')} label="ออกงาน" time={todayLog?.checkOut || null} bgColor="bg-gradient-to-br from-red-500 to-orange-600" />
+                <ClockButton onClick={() => handleTimeLog('checkIn')} label="เข้างาน" time={todayLog?.checkIn || null} bgColor="bg-gradient-to-br from-green-500 to-emerald-600" disabled={isCheckInDisabled} />
+                <ClockButton onClick={() => handleTimeLog('checkOut')} label="ออกงาน" time={todayLog?.checkOut || null} bgColor="bg-gradient-to-br from-red-500 to-orange-600" disabled={isCheckOutDisabled} />
             </div>
 
             <div className="mt-12">

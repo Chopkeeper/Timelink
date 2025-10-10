@@ -1,3 +1,4 @@
+
 export interface RoleType {
     name: string;
     level: number;
@@ -60,4 +61,13 @@ export interface TimeLog {
 export interface SystemSettings {
     officeLocation: Location;
     checkInRadiusMeters: number;
+}
+
+// FIX: Add DashboardStats interface to be shared across the application.
+export interface DashboardStats {
+    lateArrivals: { name: string; time: string; avatar: string; }[];
+    leaveData: { name: string; count: number; }[];
+    teamMemberCount: number;
+    pendingApprovals: number;
+    leavesToday: number;
 }

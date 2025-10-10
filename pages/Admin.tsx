@@ -1,7 +1,12 @@
-import React, { useState, useMemo } from 'react';
-import { users as mockUsers, timeLogs as mockTimeLogs, roles as mockRoles, systemSettings as mockSystemSettings } from '../mockData';
+import React, { useState, useEffect, useMemo } from 'react';
 import { User, TimeLog, RoleType, SystemSettings } from '../types';
 import { X, Save, PlusCircle, Trash2, Edit, MapPin, Settings, LocateFixed } from 'lucide-react';
+import { 
+    apiGetAllUsers, apiAddUser, apiDeleteUser,
+    apiGetAllTimeLogs, apiUpdateTimeLog,
+    apiGetAllRoles, apiAddRole, apiUpdateRole, apiDeleteRole,
+    apiGetSystemSettings, apiUpdateSystemSettings
+} from '../services/api';
 
 // Modal for adding a new user
 const AddUserModal: React.FC<{ roles: RoleType[]; onClose: () => void; onSave: (newUser: User) => void; }> = ({ roles, onClose, onSave }) => {
@@ -99,13 +104,13 @@ const EditTimeLogModal: React.FC<{ log: TimeLog; user: User; onClose: () => void
 };
 
 // Modal for adding/editing roles
-const RoleModal: React.FC<{ role?: RoleType | null; onClose: () => void; onSave: (role: RoleType) => void; }> = ({ role, onClose, onSave }) => {
+const RoleModal: React.FC<{ role?: RoleType | null; onClose: () => void; onSave: (role: RoleType, originalName?: string) => void; }> = ({ role, onClose, onSave }) => {
     const [name, setName] = useState(role?.name || '');
     const [level, setLevel] = useState(role?.level || 1);
 
     const handleLevelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const parsedLevel = parseInt(e.target.value, 10);
-        setLevel(isNaN(parsedLevel) ? 0 : parsedLevel); // Default to 0 if input is not a valid number
+        setLevel(isNaN(parsedLevel) ? 0 : parsedLevel);
     };
 
     const handleSubmit = () => {
@@ -113,7 +118,7 @@ const RoleModal: React.FC<{ role?: RoleType | null; onClose: () => void; onSave:
             alert('กรุณากรอกข้อมูลให้ครบถ้วนและลำดับขั้นต้องมากกว่า 0');
             return;
         }
-        onSave({ name, level });
+        onSave({ name, level }, role?.name);
     };
 
     return (
@@ -134,87 +139,119 @@ const RoleModal: React.FC<{ role?: RoleType | null; onClose: () => void; onSave:
 };
 
 const Admin: React.FC = () => {
-    const [users, setUsers] = useState<User[]>(mockUsers);
-    const [timeLogs, setTimeLogs] = useState<TimeLog[]>(mockTimeLogs);
-    const [roles, setRoles] = useState<RoleType[]>(mockRoles);
-    const [settings, setSettings] = useState<SystemSettings>(mockSystemSettings);
+    const [users, setUsers] = useState<User[]>([]);
+    const [timeLogs, setTimeLogs] = useState<TimeLog[]>([]);
+    const [roles, setRoles] = useState<RoleType[]>([]);
+    const [settings, setSettings] = useState<SystemSettings | null>(null);
+    const [loading, setLoading] = useState(true);
 
     const [editingLog, setEditingLog] = useState<TimeLog | null>(null);
     const [isAddUserModalOpen, setAddUserModalOpen] = useState(false);
     const [editingRole, setEditingRole] = useState<RoleType | null | undefined>(undefined);
 
+    useEffect(() => {
+        const fetchAllData = async () => {
+            try {
+                const [usersData, timeLogsData, rolesData, settingsData] = await Promise.all([
+                    apiGetAllUsers(),
+                    apiGetAllTimeLogs(),
+                    apiGetAllRoles(),
+                    apiGetSystemSettings()
+                ]);
+                setUsers(usersData);
+                setTimeLogs(timeLogsData);
+                setRoles(rolesData.sort((a,b) => a.level - b.level));
+                setSettings(settingsData);
+            } catch (error) {
+                console.error("Failed to load admin data", error);
+                alert("ไม่สามารถโหลดข้อมูลผู้ดูแลระบบได้");
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchAllData();
+    }, []);
+
     const getUserById = (userId: string) => users.find(u => u.id === userId);
 
-    const handleAddUser = (newUser: User) => {
-        const updatedUsers = [...users, newUser];
-        setUsers(updatedUsers);
-        mockUsers.length = 0;
-        Array.prototype.push.apply(mockUsers, updatedUsers);
-        setAddUserModalOpen(false);
-    };
-
-    const handleDeleteUser = (userId: string) => {
-        if (window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบผู้ใช้งานนี้?')) {
-            const updatedUsers = users.filter(u => u.id !== userId);
-            setUsers(updatedUsers);
-            mockUsers.length = 0;
-            Array.prototype.push.apply(mockUsers, updatedUsers);
+    const handleAddUser = async (newUser: User) => {
+        try {
+            const addedUser = await apiAddUser(newUser);
+            setUsers([...users, addedUser]);
+            setAddUserModalOpen(false);
+        } catch (error) {
+            alert(error.message || 'เกิดข้อผิดพลาดในการเพิ่มผู้ใช้');
         }
     };
 
-    const handleSaveTimeLog = (updatedLog: TimeLog) => {
-        const updatedLogs = timeLogs.map(log => log.id === updatedLog.id ? updatedLog : log);
-        setTimeLogs(updatedLogs);
-        mockTimeLogs.length = 0;
-        Array.prototype.push.apply(mockTimeLogs, updatedLogs);
-        setEditingLog(null);
+    const handleDeleteUser = async (userId: string) => {
+        if (window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบผู้ใช้งานนี้?')) {
+            try {
+                await apiDeleteUser(userId);
+                setUsers(users.filter(u => u.id !== userId));
+            } catch (error) {
+                alert(error.message || 'เกิดข้อผิดพลาดในการลบผู้ใช้');
+            }
+        }
+    };
+
+    const handleSaveTimeLog = async (updatedLog: TimeLog) => {
+        try {
+            const savedLog = await apiUpdateTimeLog(updatedLog.id, updatedLog);
+            setTimeLogs(timeLogs.map(log => log.id === savedLog.id ? savedLog : log));
+            setEditingLog(null);
+        } catch (error) {
+             alert(error.message || 'เกิดข้อผิดพลาดในการแก้ไขข้อมูลเวลา');
+        }
     };
     
-    const handleSaveRole = (roleToSave: RoleType) => {
-        let updatedRoles;
-        if (editingRole && roles.find(r => r.name === editingRole.name)) {
-             updatedRoles = roles.map(r => r.name === editingRole.name ? roleToSave : r);
-        } else {
-             updatedRoles = [...roles.filter(r => r.name !== roleToSave.name), roleToSave];
+    const handleSaveRole = async (roleToSave: RoleType, originalName?: string) => {
+        try {
+            let savedRole;
+            if (originalName) {
+                savedRole = await apiUpdateRole(originalName, roleToSave);
+            } else {
+                savedRole = await apiAddRole(roleToSave);
+            }
+            
+            const existingRoles = roles.filter(r => r.name !== originalName && r.name !== savedRole.name);
+            const updatedRoles = [...existingRoles, savedRole].sort((a, b) => a.level - b.level);
+            
+            setRoles(updatedRoles);
+            setEditingRole(undefined);
+        } catch (error) {
+             alert(error.message || 'เกิดข้อผิดพลาดในการบันทึกตำแหน่ง');
         }
-        updatedRoles.sort((a,b) => a.level - b.level);
-        setRoles(updatedRoles);
-        mockRoles.length = 0;
-        Array.prototype.push.apply(mockRoles, updatedRoles);
-        setEditingRole(null);
     };
 
-    const handleDeleteRole = (roleName: string) => {
+    const handleDeleteRole = async (roleName: string) => {
         if (users.some(u => u.role === roleName)) {
             alert('ไม่สามารถลบตำแหน่งได้ เนื่องจากยังมีพนักงานใช้งานอยู่');
             return;
         }
         if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบตำแหน่ง "${roleName}"?`)) {
-            const updatedRoles = roles.filter(r => r.name !== roleName);
-            setRoles(updatedRoles);
-            mockRoles.length = 0;
-            Array.prototype.push.apply(mockRoles, updatedRoles);
+            try {
+                await apiDeleteRole(roleName);
+                setRoles(roles.filter(r => r.name !== roleName));
+            } catch (error) {
+                alert(error.message || 'เกิดข้อผิดพลาดในการลบตำแหน่ง');
+            }
         }
     };
 
     const handleSettingsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!settings) return;
         const { name, value } = e.target;
         const numValue = parseFloat(value);
         const [field, subfield] = name.split('.');
         
-        if (subfield) { // nested object like officeLocation.latitude
+        if (subfield) {
             setSettings(prev => ({
-                ...prev,
-                [field]: {
-                    ...(prev[field as keyof SystemSettings] as object),
-                    [subfield]: isNaN(numValue) ? 0 : numValue
-                }
+                ...prev!,
+                [field]: { ...prev![field as keyof SystemSettings] as object, [subfield]: isNaN(numValue) ? 0 : numValue }
             }));
         } else {
-            setSettings(prev => ({
-                ...prev,
-                [name]: isNaN(numValue) ? 0 : numValue
-            }));
+            setSettings(prev => ({ ...prev!, [name]: isNaN(numValue) ? 0 : numValue }));
         }
     };
 
@@ -222,23 +259,21 @@ const Admin: React.FC = () => {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const { latitude, longitude } = position.coords;
-                setSettings(prev => ({
-                    ...prev,
-                    officeLocation: { latitude, longitude }
-                }));
+                setSettings(prev => ({ ...prev!, officeLocation: { latitude, longitude } }));
                 alert('ตั้งค่าตำแหน่งปัจจุบันสำเร็จ!');
             },
-            (error) => {
-                alert(`ไม่สามารถดึงตำแหน่งได้: ${error.message}`);
-            }
+            (error) => { alert(`ไม่สามารถดึงตำแหน่งได้: ${error.message}`); }
         );
     };
 
-    const handleSaveSettings = () => {
-        // Update the mutable mockSystemSettings object
-        mockSystemSettings.officeLocation = settings.officeLocation;
-        mockSystemSettings.checkInRadiusMeters = settings.checkInRadiusMeters;
-        alert('บันทึกการตั้งค่าสำเร็จแล้ว');
+    const handleSaveSettings = async () => {
+        if (!settings) return;
+        try {
+            await apiUpdateSystemSettings(settings);
+            alert('บันทึกการตั้งค่าสำเร็จแล้ว');
+        } catch (error) {
+            alert(error.message || 'เกิดข้อผิดพลาดในการบันทึกการตั้งค่า');
+        }
     };
 
     const sortedTimeLogs = useMemo(() =>
@@ -246,9 +281,11 @@ const Admin: React.FC = () => {
         [timeLogs]
     );
 
+    if (loading) return <div>Loading Admin Panel...</div>;
+    if (!settings) return <div>Could not load system settings. Please refresh.</div>
+
     return (
         <div className="space-y-8">
-            {/* System Settings */}
             <div className="bg-white p-6 rounded-xl shadow-md">
                 <div className="flex items-center mb-4">
                     <Settings size={24} className="text-gray-700 mr-3" />
@@ -278,7 +315,6 @@ const Admin: React.FC = () => {
                 </div>
             </div>
 
-            {/* User Management */}
             <div className="bg-white p-6 rounded-xl shadow-md">
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-2xl font-bold text-gray-800">จัดการผู้ใช้งาน</h2>
@@ -314,7 +350,6 @@ const Admin: React.FC = () => {
                 </div>
             </div>
 
-            {/* Role Management */}
             <div className="bg-white p-6 rounded-xl shadow-md">
                  <div className="flex justify-between items-center mb-4">
                     <h2 className="text-2xl font-bold text-gray-800">จัดการตำแหน่ง</h2>
@@ -347,7 +382,6 @@ const Admin: React.FC = () => {
                 </div>
             </div>
 
-            {/* Time Log Management */}
             <div className="bg-white p-6 rounded-xl shadow-md">
                 <h2 className="text-2xl font-bold text-gray-800 mb-4">จัดการข้อมูลเวลา</h2>
                 <div className="overflow-x-auto">
@@ -401,7 +435,9 @@ const Admin: React.FC = () => {
             
             {isAddUserModalOpen && <AddUserModal roles={roles} onClose={() => setAddUserModalOpen(false)} onSave={handleAddUser} />}
             {editingLog && <EditTimeLogModal log={editingLog} user={getUserById(editingLog.userId)!} onClose={() => setEditingLog(null)} onSave={handleSaveTimeLog} />}
-            {editingRole !== null && <RoleModal role={editingRole} onClose={() => setEditingRole(null)} onSave={handleSaveRole} />}
+            {editingRole !== null && editingRole !== undefined && <RoleModal role={editingRole} onClose={() => setEditingRole(undefined)} onSave={handleSaveRole} />}
+            {editingRole === undefined && <RoleModal onClose={() => setEditingRole(null)} onSave={handleSaveRole} />}
+
         </div>
     );
 };

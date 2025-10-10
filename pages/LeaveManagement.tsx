@@ -1,9 +1,7 @@
-
-import React, { useState } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { leaveRequests } from '../mockData';
+import React, { useState, useEffect } from 'react';
 import { LeaveRequest, LeaveType, LeaveStatus } from '../types';
 import { Plus, X } from 'lucide-react';
+import { apiGetMyLeaveRequests, apiCreateLeaveRequest } from '../services/api';
 
 const StatusBadge: React.FC<{ status: LeaveStatus }> = ({ status }) => {
     const statusMap = {
@@ -74,27 +72,35 @@ const LeaveRequestModal: React.FC<{ onClose: () => void; onSubmit: (newRequest: 
 };
 
 const LeaveManagement: React.FC = () => {
-    const { currentUser } = useAuth();
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [userLeaveRequests, setUserLeaveRequests] = useState(() => 
-        leaveRequests
-            .filter(req => req.userId === currentUser?.id)
-            .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime())
-    );
+    const [userLeaveRequests, setUserLeaveRequests] = useState<LeaveRequest[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const handleRequestSubmit = (newRequestData: Omit<LeaveRequest, 'id' | 'userId' | 'status' | 'requestedAt'>) => {
-        const newRequest: LeaveRequest = {
-            id: `LR${Date.now()}`,
-            userId: currentUser!.id,
-            status: LeaveStatus.Pending,
-            requestedAt: new Date().toISOString(),
-            ...newRequestData
+    useEffect(() => {
+        const fetchLeaveRequests = async () => {
+            try {
+                const requests = await apiGetMyLeaveRequests();
+                setUserLeaveRequests(requests.sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime()));
+            } catch (error) {
+                console.error("Failed to fetch leave requests", error);
+                alert("ไม่สามารถโหลดประวัติการลาได้");
+            } finally {
+                setLoading(false);
+            }
         };
-        // In real app, this would be an API call
-        leaveRequests.push(newRequest);
-        setUserLeaveRequests([newRequest, ...userLeaveRequests]);
-        setIsModalOpen(false);
-        alert('ส่งคำขอลางานสำเร็จ');
+        fetchLeaveRequests();
+    }, []);
+
+    const handleRequestSubmit = async (newRequestData: Omit<LeaveRequest, 'id' | 'userId' | 'status' | 'requestedAt'>) => {
+        try {
+            const newRequest = await apiCreateLeaveRequest(newRequestData);
+            setUserLeaveRequests([newRequest, ...userLeaveRequests]);
+            setIsModalOpen(false);
+            alert('ส่งคำขอลางานสำเร็จ');
+        } catch (error) {
+            console.error("Failed to create leave request", error);
+            alert(error.message || 'ไม่สามารถส่งคำขอลางานได้');
+        }
     };
 
     return (
@@ -120,19 +126,23 @@ const LeaveManagement: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {userLeaveRequests.map(req => (
-                                <tr key={req.id}>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(req.requestedAt).toLocaleDateString('th-TH')}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{req.leaveType}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(req.startDate).toLocaleDateString('th-TH')} - {new Date(req.endDate).toLocaleDateString('th-TH')}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">{req.reason}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><StatusBadge status={req.status} /></td>
-                                </tr>
-                            ))}
+                            {loading ? (
+                                <tr><td colSpan={5} className="text-center p-4">กำลังโหลดข้อมูล...</td></tr>
+                            ) : userLeaveRequests.length > 0 ? (
+                                userLeaveRequests.map(req => (
+                                    <tr key={req.id}>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(req.requestedAt).toLocaleDateString('th-TH')}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{req.leaveType}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(req.startDate).toLocaleDateString('th-TH')} - {new Date(req.endDate).toLocaleDateString('th-TH')}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">{req.reason}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><StatusBadge status={req.status} /></td>
+                                    </tr>
+                                ))
+                            ) : null}
                         </tbody>
                     </table>
                 </div>
-                 {userLeaveRequests.length === 0 && <p className="p-4 text-center text-gray-500">ไม่มีประวัติการลา</p>}
+                 {!loading && userLeaveRequests.length === 0 && <p className="p-4 text-center text-gray-500">ไม่มีประวัติการลา</p>}
             </div>
 
             {isModalOpen && <LeaveRequestModal onClose={() => setIsModalOpen(false)} onSubmit={handleRequestSubmit} />}

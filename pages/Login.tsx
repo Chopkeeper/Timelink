@@ -55,12 +55,10 @@ const Login: React.FC = () => {
         }
     };
 
-    const handleSimulatedQrLogin = (lineUserId: string, displayName?: string) => {
+    const handleSimulatedQrLogin = async (lineUserId: string, displayName?: string) => {
         setShowQR(false);
-        const existingUser = findUserByLineId(lineUserId);
-        if (existingUser) {
-            login(existingUser.id);
-        } else {
+        const { exists } = await findUserByLineId(lineUserId);
+        if (!exists) {
             navigate('/line-register', { 
                 state: { 
                     lineUserId, 
@@ -103,7 +101,7 @@ const Login: React.FC = () => {
                             value={userId}
                             onChange={(e) => setUserId(e.target.value)}
                             className="appearance-none rounded-md relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            placeholder="รหัสพนักงาน (e.g., EMP001)"
+                            placeholder="รหัสพนักงาน"
                         />
                     </div>
                      <div>
@@ -116,7 +114,7 @@ const Login: React.FC = () => {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className="appearance-none rounded-md relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            placeholder="รหัสผ่าน (e.g., password123)"
+                            placeholder="รหัสผ่าน"
                         />
                     </div>
 

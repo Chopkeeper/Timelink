@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { users } from '../mockData';
-import { User } from '../types';
+import { apiRegister } from '../services/api';
 
-// SVG for LINE icon
 const LineIcon = () => (
     <svg viewBox="0 0 256 256" className="w-6 h-6 mr-3">
         <path fill="#00C300" d="M228.33,128.03c0-55.43-45.03-100.46-100.46-100.46S27.41,72.6,27.41,128.03 c0,50.18,36.93,91.68,85.03,98.98v-67.45H89.26V128.03h23.18v-20.4c0-22.95,14.03-35.47,34.52-35.47 c9.82,0,18.25,0.73,20.71,1.06v27.26h-16.15c-11.14,0-13.3,5.29-13.3,13.06v17.16h30.17l-3.93,31.53h-26.24v67.45 C191.4,219.71,228.33,178.21,228.33,128.03z"/>
@@ -24,20 +22,7 @@ const Register: React.FC = () => {
     const [confirmPassword, setConfirmPassword] = useState('');
 
     const handleLineLogin = () => {
-        // In a real application, you would get these from your .env file
-        const LINE_CLIENT_ID = 'YOUR_LINE_CLIENT_ID'; // Replace with your actual Channel ID from LINE Developers Console
-        const REDIRECT_URI = 'http://localhost:3000/auth/line/callback'; // Your backend callback URL
-        const STATE = 'some_random_state_string'; // A random string for security (CSRF protection)
-
-        // The URL for initiating LINE Login
-        const lineLoginUrl = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${LINE_CLIENT_ID}&redirect_uri=${REDIRECT_URI}&state=${STATE}&scope=profile%20openid%20email`;
-        
-        // Redirect the user to LINE's authorization page
-        // window.location.href = lineLoginUrl;
-
-        // For this demo, we'll just show an alert
-        alert('Redirecting to LINE Login...\n(This is a simulation. In a real app, you would be sent to LINE.)');
-        console.log('Redirecting to:', lineLoginUrl);
+        alert('ฟังก์ชันเชื่อมต่อกับ LINE Login จริงจะถูกพัฒนาในอนาคต');
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -45,9 +30,8 @@ const Register: React.FC = () => {
         setFormData(prev => ({...prev, [name]: value}));
     }
 
-    const handleFormSubmit = (e: React.FormEvent) => {
+    const handleFormSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Basic validation
         if(Object.values(formData).some(val => val === '') || !password || !confirmPassword) {
             alert('กรุณากรอกข้อมูลให้ครบถ้วน');
             return;
@@ -58,19 +42,15 @@ const Register: React.FC = () => {
             return;
         }
 
-        // In a real app, this would be an API call to your backend to register the user.
-        // The backend would then save the user to the MongoDB database.
-        const newUser: User = {
-            ...formData,
-            password: password,
-            avatar: `https://picsum.photos/seed/${formData.id}/200`,
-            role: 'พนักงานปฏิบัติการ', // Default role for new sign-ups
-        };
-
-        // For this demo, we add it to our mock data and navigate to login.
-        users.push(newUser);
-        alert(`สมัครสมาชิกสำเร็จ! รหัสพนักงานของคุณคือ: ${formData.id}\nกรุณาใช้รหัสนี้และรหัสผ่านที่คุณตั้งไว้เพื่อเข้าสู่ระบบ`);
-        navigate('/login');
+        try {
+            const newUser = { ...formData, password };
+            await apiRegister(newUser);
+            alert(`สมัครสมาชิกสำเร็จ! รหัสพนักงานของคุณคือ: ${formData.id}\nกรุณาใช้รหัสนี้และรหัสผ่านที่คุณตั้งไว้เพื่อเข้าสู่ระบบ`);
+            navigate('/login');
+        } catch (error) {
+            console.error(error);
+            alert(error.message || 'เกิดข้อผิดพลาดในการสมัครสมาชิก');
+        }
     };
 
     return (

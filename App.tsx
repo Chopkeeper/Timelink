@@ -1,8 +1,7 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthContext } from './contexts/AuthContext';
 import { User } from './types';
-import { users } from './mockData';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -12,48 +11,65 @@ import LeaveManagement from './pages/LeaveManagement';
 import Approvals from './pages/Approvals';
 import Admin from './pages/Admin';
 import LineRegister from './pages/LineRegister';
+import { apiLogin, apiLineRegister, apiGetUserByLineId } from './services/api';
 
 const App: React.FC = () => {
-    const [currentUser, setCurrentUser] = useState<User | null>(() => {
-        const storedUser = localStorage.getItem('currentUser');
-        return storedUser ? JSON.parse(storedUser) : null;
-    });
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
 
-    const login = useCallback((userId: string, password?: string) => {
-        const user = users.find(u => {
-            if (password) {
-                return u.id === userId && u.password === password;
-            }
-            return u.id === userId;
-        });
+    useEffect(() => {
+        const user = localStorage.getItem('currentUser');
+        const token = localStorage.getItem('token');
+        if (user && token) {
+            setCurrentUser(JSON.parse(user));
+        }
+        setLoading(false);
+    }, []);
 
-        if (user) {
+    const login = useCallback(async (userId: string, password?: string) => {
+        try {
+            const { token, user } = await apiLogin(userId, password);
             setCurrentUser(user);
             localStorage.setItem('currentUser', JSON.stringify(user));
-        } else {
-            alert('รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง');
+            localStorage.setItem('token', token);
+        } catch (error) {
+            console.error(error);
+            alert(error.message || 'รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง');
         }
     }, []);
 
     const logout = useCallback(() => {
         setCurrentUser(null);
         localStorage.removeItem('currentUser');
+        localStorage.removeItem('token');
     }, []);
 
-    const findUserByLineId = useCallback((lineUserId: string): User | null => {
-        return users.find(u => u.lineUserId === lineUserId) || null;
+    const findUserByLineId = useCallback(async (lineUserId: string): Promise<{exists: boolean, user?: User, token?: string}> => {
+        try {
+            const response = await apiGetUserByLineId(lineUserId);
+            if (response.exists) {
+                setCurrentUser(response.user);
+                localStorage.setItem('currentUser', JSON.stringify(response.user));
+                localStorage.setItem('token', response.token);
+                return { exists: true, user: response.user };
+            }
+            return { exists: false };
+        } catch (error) {
+            console.error("Error finding user by Line ID:", error);
+            return { exists: false };
+        }
     }, []);
 
-    const registerAndLogin = useCallback((userData: Omit<User, 'avatar' | 'role' | 'password'>) => {
-        const newUser: User = {
-            ...userData,
-            avatar: `https://picsum.photos/seed/${userData.id}/200`,
-            role: 'พนักงานปฏิบัติการ',
-            password: 'password123',
-        };
-        users.push(newUser); 
-        setCurrentUser(newUser);
-        localStorage.setItem('currentUser', JSON.stringify(newUser));
+    const registerAndLogin = useCallback(async (userData: Omit<User, 'avatar' | 'role' | 'password'>) => {
+       try {
+            const { token, user } = await apiLineRegister(userData);
+            setCurrentUser(user);
+            localStorage.setItem('currentUser', JSON.stringify(user));
+            localStorage.setItem('token', token);
+       } catch (error) {
+           console.error(error);
+           alert(error.message || 'ไม่สามารถลงทะเบียนได้');
+       }
     }, []);
 
     const authContextValue = useMemo(() => ({
@@ -63,6 +79,10 @@ const App: React.FC = () => {
         findUserByLineId,
         registerAndLogin
     }), [currentUser, login, logout, findUserByLineId, registerAndLogin]);
+
+    if (loading) {
+        return <div>Loading...</div>; // Or a proper spinner component
+    }
 
     return (
         <AuthContext.Provider value={authContextValue}>

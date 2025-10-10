@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Header from './Header';
 import Sidebar from './Sidebar';
+import AiAssistant from './AiAssistant';
 
 const Layout: React.FC = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -16,6 +17,7 @@ const Layout: React.FC = () => {
                     <Outlet />
                 </main>
             </div>
+            <AiAssistant />
         </div>
     );
 };
